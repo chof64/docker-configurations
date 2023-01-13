@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  whoami:
+    # A container that exposes an API to show its IP address
+    image: traefik/whoami:latest
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+      #! ROUTER: [WEB] 80: HTTP
+      traefik.http.services.whoami.loadbalancer.server.port: 80
+      #? HTTP
+      traefik.http.routers.whoami-http.entrypoints: http
+      traefik.http.routers.whoami-http.rule: Host(`${WHOAMI_80_DOMAIN?WHOAMI_80_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.whoami-https.entrypoints: https
+      traefik.http.routers.whoami-https.rule: Host(`${WHOAMI_80_DOMAIN?WHOAMI_80_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.whoami-https.tls: true
+      traefik.http.routers.whoami-https.tls.certresolver: letsencrypt
+      #! MIDDLEWARE
+      #? REDIRECT HTTP TO HTTPS
+      traefik.http.routers.whoami-http.middlewares: whoami-redirect
+      traefik.http.middlewares.whoami-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.whoami-redirect.redirectscheme.permanent: true
+    networks:
+      - traefik-public
+    restart: "no"
+
+networks:
+  traefik-public:
+    external: true
