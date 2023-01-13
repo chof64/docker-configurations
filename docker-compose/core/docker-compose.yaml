@@ -1,0 +1,100 @@
+version: "3.9"
+services:
+  traefik:
+    command:
+      #! ENTRYPOINT
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      #! PROVIDERS
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      #! SSL/TLS Let's Encrypt
+      #? [letsencrypt] Production CA.
+      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+      - --certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${CORE_TRAEFIK_SSL_EMAIL?CORE_TRAEFIK_SSL_EMAIL not set}
+      #! LOGGING
+      #? Access logs.
+      - --accesslog=true
+      - --accesslog.bufferingsize=100
+      - --accesslog.filepath=/traefik/access.log
+      - --accesslog.format=json
+      #? Error logs.
+      - --log=true
+      - --log.level=DEBUG
+      - --log.filepath=/traefik/error.log
+      - --log.format=json
+      #! DASHBOARD
+      - --api
+      - --api.dashboard=true
+      - --api.insecure=true # only remove if PRODUCTION SSL is used.
+    image: traefik:latest
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+      #! ROUTER: [dashboard] 8080: Traefik API/Dashboard
+      traefik.http.services.core-traefik-dashboard.loadbalancer.server.port: 8080
+      #? HTTP
+      traefik.http.routers.core-traefik-dashboard-http.entrypoints: http
+      traefik.http.routers.core-traefik-dashboard-http.rule: Host(`${CORE_TRAEFIK_8080_DOMAIN?CORE_TRAEFIK_8080_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.core-traefik-dashboard-https.entrypoints: https
+      traefik.http.routers.core-traefik-dashboard-https.rule: Host(`${CORE_TRAEFIK_8080_DOMAIN?CORE_TRAEFIK_8080_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.core-traefik-dashboard-https.tls: true
+      traefik.http.routers.core-traefik-dashboard-https.tls.certresolver: letsencrypt
+      #! MIDDLEWARE
+      #? [dashboard] Redirect HTTP to HTTPS.
+      traefik.http.routers.core-traefik-dashboard-http.middlewares: core-traefik-https-redirect
+      traefik.http.middlewares.core-traefik-https-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.core-traefik-https-redirect.redirectscheme.permanent: true
+      #? [dashboard] Basic Auth.
+      traefik.http.routers.core-traefik-dashboard-https.middlewares: core-traefik-basic-auth
+      traefik.http.middlewares.core-traefik-basic-auth.basicauth.users: ${CORE_TRAEFIK_8080_AUTH?CORE_TRAEFIK_8080_AUTH not set}
+      #! EXTRAS
+      #? Use the special Traefik service api@internal for the UI/Dashboard
+      traefik.http.routers.core-traefik-dashboard.service: api@internal
+    networks:
+      - traefik-public
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /core/traefik:/traefik
+
+  portainer:
+    command: -H unix:///var/run/docker.sock
+    image: portainer/portainer-ce:latest
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+      #! ROUTER [dashboard] 9000: Portainer API/Dashboard
+      traefik.http.services.core-portainer-dashboard-service.loadbalancer.server.port: 9000
+      #? HTTP
+      traefik.http.routers.core-portainer-dashboard-http.entrypoints: http
+      traefik.http.routers.core-portainer-dashboard-http.rule: Host(`${CORE_PORTAINER_9000_DOMAIN?CORE_PORTAINER_9000_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.core-portainer-dashboard-https.entrypoints: https
+      traefik.http.routers.core-portainer-dashboard-https.rule: Host(`${CORE_PORTAINER_9000_DOMAIN?CORE_PORTAINER_9000_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.core-portainer-dashboard-https.tls: true
+      traefik.http.routers.core-portainer-dashboard-https.tls.certresolver: letsencrypt
+      #! MIDDLEWARE
+      traefik.http.routers.core-portainer-http.middlewares: core-portainer-https-redirect
+      traefik.http.middlewares.core-portainer-https-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.core-portainer-https-redirect.redirectscheme.permanent: true
+    networks:
+      - traefik-public
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /core/portainer:/data
+
+networks:
+  traefik-public:
+    external: true
