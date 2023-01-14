@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  ghost: # add prefix to avoid conflicts
+  ghost:
     depends_on:
       - db
     environment:
@@ -37,6 +37,7 @@ services:
     restart: on-failure
     volumes:
       - ghost:/var/lib/ghost
+      - ghost_content:/var/lib/ghost/content
 
   db:
     environment:
@@ -47,7 +48,7 @@ services:
       - internal
     restart: always
     volumes:
-      - db:/var/lib/mysql
+      - db_data:/var/lib/mysql
 
 networks:
   traefik-public:
@@ -56,6 +57,7 @@ networks:
     driver: bridge
 
 volumes:
-  db:
+  db_data:
   ghost:
+  ghost_content:
   
