@@ -1,0 +1,61 @@
+version: "3.9"
+services:
+  ghost: # add prefix to avoid conflicts
+    depends_on:
+      - db
+    environment:
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: root
+      database__connection__password: ${GHOST_DB_PASSWORD?GHOST_DB_PASSWORD not set}
+      database__connection__database: ghost
+      url: http://${GHOST_2368_DOMAIN?GHOST_2368_DOMAIN not set}
+    image: ghost:latest
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+      #! ROUTER: [WEB] 2368: Ghost Frontend
+      traefik.http.services.ghost-frontend.loadbalancer.server.port: 2368
+      #? HTTP
+      traefik.http.routers.ghost-frontend-http.entrypoints: http
+      traefik.http.routers.ghost-frontend-http.rule: Host(`${GHOST_2368_DOMAIN?GHOST_2368_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.ghost-frontend-https.entrypoints: https
+      traefik.http.routers.ghost-frontend-https.rule: Host(`${GHOST_2368_DOMAIN?GHOST_2368_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.ghost-frontend-https.tls: true
+      traefik.http.routers.ghost-frontend-https.tls.certresolver: letsencrypt
+      #! MIDDLEWARE
+      #? [WEB] Redirect HTTP to HTTPS
+      traefik.http.routers.ghost-frontend-http.middlewares: ghost-frontend-redirect
+      traefik.http.middlewares.ghost-frontend-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.ghost-frontend-redirect.redirectscheme.permanent: true
+    networks:
+      - traefik-public
+      - internal
+    restart: on-failure
+    volumes:
+      - ghost:/var/lib/ghost
+
+  db:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${GHOST_DB_PASSWORD?GHOST_DB_PASSWORD not set}
+      MYSQL_DATABASE: ghost
+    image: mysql:latest
+    networks:
+      - internal
+    restart: always
+    volumes:
+      - db:/var/lib/mysql
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    driver: bridge
+
+volumes:
+  db:
+  ghost:
+  
