@@ -1,0 +1,31 @@
+version: "3"
+services:
+  firefox:
+    image: jlesage/firefox
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+      #! ROUTER: [WEB] 5800: Firefox Frontend
+      traefik.http.services.firefox.loadbalancer.server.port: 5800
+      #? HTTP
+      traefik.http.routers.firefox-http.entrypoints: http
+      traefik.http.routers.firefox-http.rule: Host(`${FIREFOX_5800_DOMAIN?FIREFOX_5800_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.firefox-https.entrypoints: https
+      traefik.http.routers.firefox-https.rule: Host(`${FIREFOX_5800_DOMAIN?FIREFOX_5800_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.firefox-https.tls: true
+      traefik.http.routers.firefox-https.tls.certresolver: letsencrypt
+      #! MIDDLEWARE
+      #? [WEB] Redirect HTTP to HTTPS
+      traefik.http.routers.firefox-http.middlewares: firefox-redirect
+      traefik.http.middlewares.firefox-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.firefox-redirect.redirectscheme.permanent: true
+    networks:
+      - traefik-public
+    restart: on-failure
+
+networks:
+  traefik-public:
+    external: true
