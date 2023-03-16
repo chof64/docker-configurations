@@ -1,0 +1,69 @@
+version: "3.9"
+services:
+  code-server:
+    image: ubuntu:latest
+    command: >
+      sh -c "
+        apt-get update && apt install -y wget curl
+        wget -O- https://aka.ms/install-vscode-server/setup.sh | sh
+        code-server serve-local --port 80 --host 0.0.0.0 --accept-server-license-terms --without-connection-token
+      "
+    labels:
+      # ==================
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+
+      # ==================
+      #! ROUTER [interface] 8080: Code Server Interface
+      traefik.http.services.code-server-interface-service.loadbalancer.server.port: 80
+      #? HTTP
+      traefik.http.routers.code-server-interface-http.service: code-server-interface-service
+      traefik.http.routers.code-server-interface-http.entrypoints: http
+      traefik.http.routers.code-server-interface-http.rule: Host(`${CODE_SERVER_8080_DOMAIN?CODE_SERVER_8080_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.code-server-interface-https.service: code-server-interface-service
+      traefik.http.routers.code-server-interface-https.entrypoints: https
+      traefik.http.routers.code-server-interface-https.rule: Host(`${CODE_SERVER_8080_DOMAIN?CODE_SERVER_8080_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.code-server-interface-https.tls: true
+      traefik.http.routers.code-server-interface-https.tls.certresolver: letsencrypt
+
+      # ==================
+      #! ROUTER [preview] 3000: Code Server Preview on 3000
+      traefik.http.services.code-server-preview-service.loadbalancer.server.port: 3000
+      #? HTTP
+      traefik.http.routers.code-server-preview-http.service: code-server-preview-service
+      traefik.http.routers.code-server-preview-http.entrypoints: http
+      traefik.http.routers.code-server-preview-http.rule: Host(`${CODE_SERVER_3000_DOMAIN?CODE_SERVER_3000_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.code-server-preview-https.service: code-server-preview-service
+      traefik.http.routers.code-server-preview-https.entrypoints: https
+      traefik.http.routers.code-server-preview-https.rule: Host(`${CODE_SERVER_3000_DOMAIN?CODE_SERVER_3000_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.code-server-preview-https.tls: true
+      traefik.http.routers.code-server-preview-https.tls.certresolver: letsencrypt
+
+      # ==================
+      #! MIDDLWARE
+      #? [interface] Redirect HTTP to HTTPS.
+      traefik.http.routers.code-server-interface-http.middlewares: https-redirect
+      traefik.http.routers.code-server-preview-http.middlewares: https-redirect
+      traefik.http.middlewares.https-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.https-redirect.redirectscheme.permanent: true
+      #? [interface] Basic Auth
+      traefik.http.middlewares.code-server-interface-basicauth.basicauth.users: ${CODE_SERVER_INTERFACE_BASICAUTH_USERS?CODE_SERVER_INTERFACE_BASICAUTH_USERS not set}
+      traefik.http.routers.code-server-interface-https.middlewares: code-server-interface-basicauth
+
+    networks:
+      - traefik-public
+    restart: "no"
+    volumes:
+      - code-server-repo:/coder
+
+volumes:
+  code-server-repo:
+
+networks:
+  traefik-public:
+    external: true
