@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  traefik:
+  core-traefik:
     command:
       #! ENTRYPOINT
       - --entrypoints.http.address=:80
@@ -28,7 +28,7 @@ services:
       #! DASHBOARD
       - --api
       - --api.dashboard=true
-      - --api.insecure=true # only remove if PRODUCTION SSL is used.
+      - --api.insecure=true
     image: traefik:latest
     labels:
       #! NETWORK
@@ -64,9 +64,9 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /core/traefik:/traefik
+      - /var/log/docker/traefik:/traefik
 
-  portainer:
+  core-portainer:
     command: -H unix:///var/run/docker.sock
     image: portainer/portainer-ce:latest
     labels:
@@ -93,7 +93,7 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /core/portainer:/data
+      - /var/log/docker/portainer:/data
 
 networks:
   traefik-public:
