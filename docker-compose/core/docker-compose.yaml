@@ -10,9 +10,11 @@ services:
       - --providers.docker.exposedbydefault=false
       #! SSL/TLS Let's Encrypt
       #? [letsencrypt] Production CA.
-      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+      # - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
       - --certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json
-      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      # - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http
       - --certificatesresolvers.letsencrypt.acme.email=${CORE_TRAEFIK_SSL_EMAIL?CORE_TRAEFIK_SSL_EMAIL not set}
       #! LOGGING
       #? Access logs.
