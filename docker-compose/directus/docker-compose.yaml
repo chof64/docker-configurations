@@ -1,0 +1,86 @@
+version: "3"
+services:
+  database:
+    container_name: database
+    environment:
+      POSTGRES_USER: "directus" # CHANGE (LINKED)
+      POSTGRES_PASSWORD: "directus" # CHANGE (LINKED)
+      POSTGRES_DB: "directus" # CHANGE (LINKED, OPTIONAL)
+    image: postgres:latest
+    networks:
+      - directus
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  cache:
+    container_name: cache
+    image: redis:latest
+    networks:
+      - directus
+
+  directus:
+    container_name: directus
+    depends_on:
+      - cache
+      - database
+    environment:
+      # https://www.uuidgenerator.net/version4
+      KEY: "255d861b-5ea1-5996-9aa3-922530ec40b1" # CHANGE
+      SECRET: "6116487b-cda1-52c2-b5b5-c8022c45e263" # CHANGE
+
+      DB_CLIENT: "pg"
+      DB_HOST: "database"
+      DB_PORT: "5432"
+      DB_DATABASE: "directus" # CHANGE (LINKED, OPTIONAL)
+      DB_USER: "directus" # CHANGE (LINKED)
+      DB_PASSWORD: "directus" # CHANGE (LINKED)
+
+      CACHE_ENABLED: "true"
+      CACHE_STORE: "redis"
+      CACHE_REDIS: "redis://cache:6379"
+
+      ADMIN_EMAIL: "admin@example.com" # CHANGE
+      ADMIN_PASSWORD: "d1r3ctu5" # CHANGE
+
+      PUBLIC_URL: "https://directus.example.com"
+    image: directus/directus:latest
+    labels:
+      #! NETWORK
+      traefik.enable: true
+      traefik.docker.network: traefik-public
+
+      #! ROUTER [interface] 8080: Code Server Interface
+      traefik.http.services.directus-service.loadbalancer.server.port: 8055
+      #? HTTP
+      traefik.http.routers.directus-http.service: directus-service
+      traefik.http.routers.directus-http.entrypoints: http
+      traefik.http.routers.directus-http.rule: Host(`${DIRECTUS_8055_DOMAIN?DIRECTUS_8055_DOMAIN not set}`)
+      #? HTTPS
+      traefik.http.routers.directus-https.service: directus-service
+      traefik.http.routers.directus-https.entrypoints: https
+      traefik.http.routers.directus-https.rule: Host(`${DIRECTUS_8055_DOMAIN?DIRECTUS_8055_DOMAIN not set}`)
+      #? SSL/TLS
+      traefik.http.routers.directus-https.tls: true
+      traefik.http.routers.directus-https.tls.certresolver: letsencrypt
+
+      #! MIDDLWARE
+      #? [interface] Redirect HTTP to HTTPS.
+      traefik.http.routers.directus-http.middlewares: https-redirect
+      traefik.http.middlewares.https-redirect.redirectscheme.scheme: https
+      traefik.http.middlewares.https-redirect.redirectscheme.permanent: true
+    networks:
+      - directus
+      - traefik-public
+    ports:
+      - 8055:8055
+    volumes:
+      - directus:/directus/uploads
+
+volumes:
+  database:
+  directus:
+
+networks:
+  directus:
+  traefik-public:
+    external: true
